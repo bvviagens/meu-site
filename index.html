@@ -576,6 +576,11 @@
     header.nav .nav-links::-webkit-scrollbar{display:none;}
   }
 
+
+  .offers-status{display:none;margin-top:14px;padding:12px 14px;border-radius:12px;font-size:.9rem;font-weight:600;line-height:1.45;}
+  .offers-status.success{display:block;background:#eaf7ef;color:#176b3a;border:1px solid rgba(23,107,58,.18);}
+  .offers-status.error{display:block;background:#fff0ed;color:#9d2d1f;border:1px solid rgba(157,45,31,.18);}
+  .offers-form input:invalid:not(:placeholder-shown){border-color:#c74a3b;}
 </style>
 </head>
 <body>
@@ -832,15 +837,16 @@
     <div class="offers-card">
       <h3>📲 Lista de transmissão de ofertas</h3>
       <p>Informe seu nome e telefone para demonstrar interesse em participar da nossa lista de transmissão de ofertas.</p>
-      <form class="offers-form" action="https://formsubmit.co/bruno@bvviagens.com" method="POST">
+      <form class="offers-form" id="offers-form" action="https://formsubmit.co/ajax/bruno@bvviagens.com" method="POST" novalidate>
         <input type="hidden" name="_subject" value="Novo cadastro - Lista de Ofertas BV Viagens">
         <input type="hidden" name="_captcha" value="false">
         <input type="hidden" name="origem" value="Site BV Viagens - Lista de Ofertas">
         <label for="oferta-nome">Nome</label>
         <input id="oferta-nome" name="Nome" type="text" placeholder="Digite seu nome" autocomplete="name" required>
         <label for="oferta-telefone">Telefone / WhatsApp</label>
-        <input id="oferta-telefone" name="Telefone" type="tel" placeholder="(31) 99999-9999" autocomplete="tel" required>
-        <button class="btn btn-orange" type="submit">Quero receber ofertas</button>
+        <input id="oferta-telefone" name="Telefone" type="tel" placeholder="(31) 99999-9999" autocomplete="tel" inputmode="numeric" maxlength="15" pattern="\([0-9]{2}\) 9[0-9]{4}-[0-9]{4}" title="Digite o telefone completo no formato (31) 99999-9999" required>
+        <button class="btn btn-orange" type="submit" id="offers-submit">Quero receber ofertas</button>
+        <div id="offers-status" class="offers-status" role="status" aria-live="polite"></div>
         <p class="form-note">Ao enviar, você autoriza o contato da BV Viagens pelo telefone informado para o envio de ofertas. Você poderá solicitar a saída da lista a qualquer momento.</p>
       </form>
     </div>
@@ -909,6 +915,70 @@ document.addEventListener('DOMContentLoaded', function(){
   updateNavBrand();
   window.addEventListener('scroll', updateNavBrand, {passive:true});
   window.addEventListener('resize', updateNavBrand);
+
+  // Lista de ofertas: máscara brasileira e envio sem sair do site.
+  const offersForm = document.getElementById('offers-form');
+  const phoneInput = document.getElementById('oferta-telefone');
+  const offersStatus = document.getElementById('offers-status');
+  const offersSubmit = document.getElementById('offers-submit');
+
+  function formatBrazilMobile(value){
+    let digits = value.replace(/\D/g, '').slice(0, 11);
+    if (digits.length > 2 && digits.charAt(2) !== '9') {
+      // Mantém a digitação visível, mas a validação exigirá celular começando por 9.
+    }
+    if (digits.length <= 2) return digits ? '(' + digits : '';
+    if (digits.length <= 7) return '(' + digits.slice(0,2) + ') ' + digits.slice(2);
+    return '(' + digits.slice(0,2) + ') ' + digits.slice(2,7) + '-' + digits.slice(7);
+  }
+
+  if (phoneInput){
+    phoneInput.addEventListener('input', function(){
+      this.value = formatBrazilMobile(this.value);
+      this.setCustomValidity('');
+    });
+    phoneInput.addEventListener('invalid', function(){
+      if (!this.value) this.setCustomValidity('Informe seu telefone/WhatsApp.');
+      else this.setCustomValidity('Digite o número completo no formato (31) 99999-9999.');
+    });
+  }
+
+  if (offersForm){
+    offersForm.addEventListener('submit', async function(event){
+      event.preventDefault();
+      if (phoneInput) phoneInput.setCustomValidity('');
+      if (!offersForm.checkValidity()) {
+        offersForm.reportValidity();
+        return;
+      }
+
+      offersStatus.className = 'offers-status';
+      offersStatus.textContent = '';
+      offersSubmit.disabled = true;
+      offersSubmit.textContent = 'Enviando...';
+
+      const formData = new FormData(offersForm);
+      const payload = Object.fromEntries(formData.entries());
+      try {
+        const response = await fetch(offersForm.action, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json','Accept':'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (!response.ok || data.success === 'false' || data.success === false) throw new Error('Falha no envio');
+        offersStatus.className = 'offers-status success';
+        offersStatus.textContent = '✓ Cadastro realizado! Você entrou para a lista de ofertas da BV Viagens.';
+        offersForm.reset();
+      } catch (error) {
+        offersStatus.className = 'offers-status error';
+        offersStatus.textContent = 'Não foi possível concluir o cadastro agora. Tente novamente em alguns instantes.';
+      } finally {
+        offersSubmit.disabled = false;
+        offersSubmit.textContent = 'Quero receber ofertas';
+      }
+    });
+  }
 });
 </script>
 
