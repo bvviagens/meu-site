@@ -1329,13 +1329,16 @@ document.addEventListener('DOMContentLoaded', function(){
           body: JSON.stringify(payload)
         });
         const data = await response.json();
-        if (!response.ok || data.success === 'false' || data.success === false) throw new Error('Falha no envio');
+        const accepted = data && (data.success === true || data.success === 'true');
+        const serviceMessage = data && typeof data.message === 'string' ? data.message : '';
+        const activationPending = /activat|confirm.*email|verify.*email/i.test(serviceMessage);
+        if (!response.ok || !accepted || activationPending) throw new Error('Envio não confirmado');
         offersStatus.className = 'offers-status success';
-        offersStatus.textContent = '✓ Cadastro realizado! Você entrou para a lista de ofertas da BV Viagens.';
+        offersStatus.textContent = '✓ Solicitação enviada! A BV Viagens entrará em contato pelo telefone informado.';
         offersForm.reset();
       } catch (error) {
         offersStatus.className = 'offers-status error';
-        offersStatus.textContent = 'Não foi possível concluir o cadastro agora. Tente novamente em alguns instantes.';
+        offersStatus.textContent = 'Não foi possível confirmar o envio. Seus dados continuam preenchidos. Tente novamente ou fale conosco pelo botão do WhatsApp.';
       } finally {
         offersSubmit.disabled = false;
         offersSubmit.textContent = 'Quero receber ofertas';
