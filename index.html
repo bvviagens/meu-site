@@ -1216,7 +1216,7 @@ section[id]{scroll-margin-top:110px;}
     <div class="offers-card">
       <h3>📲 Lista de transmissão de ofertas</h3>
       <p>Informe seu nome e telefone para demonstrar interesse em participar da nossa lista de transmissão de ofertas.</p>
-      <form class="offers-form" id="offers-form" action="https://formsubmit.co/brunoviana.viagens@gmail.com" method="POST" target="_blank" rel="noopener">
+      <form class="offers-form" id="offers-form" action="https://formsubmit.co/ajax/brunoviana.viagens@gmail.com" method="POST">
         <input type="hidden" name="_subject" value="Novo cadastro - Lista de Ofertas BV Viagens">
         <input type="hidden" name="_captcha" value="false">
         <input type="hidden" name="origem" value="Site BV Viagens - Lista de Ofertas">
@@ -1225,6 +1225,7 @@ section[id]{scroll-margin-top:110px;}
         <label for="oferta-telefone">Telefone / WhatsApp</label>
         <input id="oferta-telefone" name="Telefone" type="tel" placeholder="(31) 99999-9999" autocomplete="tel" inputmode="numeric" maxlength="15" pattern="\([0-9]{2}\) 9[0-9]{4}-[0-9]{4}" title="Digite o telefone completo no formato (31) 99999-9999" required>
         <button class="btn btn-orange" type="submit" id="offers-submit">Quero receber ofertas</button>
+        <p id="offers-status" role="status" aria-live="polite" hidden style="margin:0;font-size:.9rem;line-height:1.5;"></p>
         <p class="form-note">Ao enviar, você autoriza o contato da BV Viagens pelo telefone informado para o envio de ofertas. Você poderá solicitar a saída da lista a qualquer momento.</p>
       </form>
     </div>
@@ -1278,7 +1279,44 @@ section[id]{scroll-margin-top:110px;}
 
 <script>
 document.addEventListener('DOMContentLoaded', function(){
-  // Lista de ofertas: máscara brasileira; envio nativo em nova aba.
+  // Lista de ofertas: envio assíncrono com confirmação na própria página.
+  const form = document.getElementById('offers-form');
+  const button = document.getElementById('offers-submit');
+  const status = document.getElementById('offers-status');
+  form.addEventListener('submit', async function(event){
+    event.preventDefault();
+    if (button.disabled || !form.reportValidity()) return;
+    const originalLabel = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Enviando...';
+    status.hidden = true;
+    status.textContent = '';
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+    try {
+      const response = await fetch(form.action, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json' },
+        body: new FormData(form),
+        signal: controller.signal
+      });
+      const result = await response.json();
+      if (!response.ok || !(result.success === true || result.success === 'true')) {
+        throw new Error('Envio não confirmado');
+      }
+      status.style.color = '#14643d';
+      status.textContent = 'Cadastro enviado com sucesso! Seu nome será incluído na nossa lista de transmissão de ofertas.';
+      form.reset();
+    } catch (error) {
+      status.style.color = '#a52a20';
+      status.textContent = 'Não foi possível confirmar o envio. Tente novamente em instantes ou entre em contato pelo WhatsApp.';
+    } finally {
+      clearTimeout(timeout);
+      status.hidden = false;
+      button.disabled = false;
+      button.textContent = originalLabel;
+    }
+  });
   const phoneInput = document.getElementById('oferta-telefone');
 
   function formatBrazilMobile(value){
